@@ -5,13 +5,18 @@ import numpy as np
 
 VIDEOS_PATH = './videos'
 OUTPUT_PATH = './output'
+FRAMES_ROOM = 30
+
+intervals = []
 
 
 def initialize_yolo():
     net = cv2.dnn.readNet("./yolo-coco/yolov3.weights", "./yolo-coco/yolov3.cfg")
     classes = []
     with open("./yolo-coco/obj.names", "r") as f:
-        classes = [line.strip() for line in f.readlines()]
+        for line in f.readlines():
+            classes.append(line.strip())
+            intervals.append([])
 
     layers_names = net.getLayerNames()
     output_layers = [layers_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
@@ -26,7 +31,7 @@ def detect_objects(img, net, outputLayers):
     return blob, outputs
 
 
-def get_box_dimensions(outputs, height, width):
+def get_box_dimensions(curr_frame_idx, outputs, height, width):
     boxes = []
     confs = []
     class_ids = []
@@ -36,15 +41,19 @@ def get_box_dimensions(outputs, height, width):
             class_id = np.argmax(scores)
             conf = scores[class_id]
             if conf > 0.3:
-                center_x = int(detect[0] * width)
-                center_y = int(detect[1] * height)
-                w = int(detect[2] * width)
-                h = int(detect[3] * height)
-                x = int(center_x - w / 2)
-                y = int(center_y - h / 2)
-                boxes.append([x, y, w, h])
-                confs.append(float(conf))
-                class_ids.append(class_id)
+                if not intervals[class_id] or curr_frame_idx - intervals[class_id][-1][1] > FRAMES_ROOM:
+                    intervals[class_id].append([curr_frame_idx, curr_frame_idx])
+                    center_x = int(detect[0] * width)
+                    center_y = int(detect[1] * height)
+                    w = int(detect[2] * width)
+                    h = int(detect[3] * height)
+                    x = int(center_x - w / 2)
+                    y = int(center_y - h / 2)
+                    boxes.append([x, y, w, h])
+                    confs.append(float(conf))
+                    class_ids.append(class_id)
+                else:
+                    intervals[class_id][-1][1] = curr_frame_idx
     return boxes, confs, class_ids
 
 
@@ -65,17 +74,27 @@ def draw_labels(boxes, confs, colors, class_ids, classes, img):
 def process_video(video):
     model, classes, colors, output_layers = initialize_yolo()
     cap = cv2.VideoCapture(video)
+    curr_frame_idx = 0
 
     while True:
-        _, frame = cap.read()
+        grabbed, frame = cap.read()
+
+        # if the frame was not grabbed, then we have reached the end
+        # of the stream
+        if not grabbed:
+            break
+
         height, width, channels = frame.shape
         blob, outputs = detect_objects(frame, model, output_layers)
-        boxes, confs, class_ids = get_box_dimensions(outputs, height, width)
-        draw_labels(boxes, confs, colors, class_ids, classes, frame)
+        boxes, confs, class_ids = get_box_dimensions(curr_frame_idx, outputs, height, width)
+        if boxes:
+            draw_labels(boxes, confs, colors, class_ids, classes, frame)
 
         key = cv2.waitKey(1)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
+
+        curr_frame_idx += 1
 
     cap.release()
 
@@ -83,4 +102,5 @@ def process_video(video):
 initialize_yolo()
 videos = os.listdir(VIDEOS_PATH)
 # for video in videos:
-process_video(VIDEOS_PATH + '/fire1.mp4')
+process_video(VIDEOS_PATH + '/fire.mp4')
+print(intervals)
