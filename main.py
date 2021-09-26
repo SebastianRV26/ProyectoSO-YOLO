@@ -3,11 +3,23 @@ import os
 import cv2
 import numpy as np
 
+import matplotlib.pyplot as plt
+import os
+
 VIDEOS_PATH = './videos'
 OUTPUT_PATH = './output'
 FRAMES_ROOM = 30
 
 intervals = []
+
+
+# frames_to_seconds(30, 60) -> 0.5
+def frames_to_seconds(frames, movie_frames):
+    return frames / movie_frames
+
+
+def frames_in_movie(video):
+    return video.get(cv2.CAP_PROP_FPS)
 
 
 def initialize_yolo():
@@ -57,7 +69,7 @@ def get_box_dimensions(curr_frame_idx, outputs, height, width):
     return boxes, confs, class_ids
 
 
-def draw_labels(boxes, confs, colors, class_ids, classes, img):
+def draw_labels(video_name, curr_frame_idx, fps, boxes, confs, colors, class_ids, classes, img):
     indexes = cv2.dnn.NMSBoxes(boxes, confs, 0.5, 0.4)
     font = cv2.FONT_HERSHEY_PLAIN
     for i in range(len(boxes)):
@@ -68,13 +80,19 @@ def draw_labels(boxes, confs, colors, class_ids, classes, img):
             cv2.rectangle(img, (x, y), (x + w, y + h), color, 2)
             cv2.putText(img, label, (x, y - 5), font, 1, color, 1)
     img = cv2.resize(img, (800, 600))
-    cv2.imshow("Image", img)
+    # create folder
+    folder_path = f"{OUTPUT_PATH}/{video_name.replace('.mp4', '')}"
+    if not os.path.isdir(folder_path):
+        os.mkdir(folder_path)
+    # save image
+    cv2.imwrite(f"{folder_path}/{str(int(frames_to_seconds(curr_frame_idx, fps)))}.jpg", img)
 
 
 def process_video(video):
     model, classes, colors, output_layers = initialize_yolo()
-    cap = cv2.VideoCapture(video)
+    cap = cv2.VideoCapture(VIDEOS_PATH + '/' + video)
     curr_frame_idx = 0
+    fps = frames_in_movie(cap)
 
     while True:
         grabbed, frame = cap.read()
@@ -88,7 +106,7 @@ def process_video(video):
         blob, outputs = detect_objects(frame, model, output_layers)
         boxes, confs, class_ids = get_box_dimensions(curr_frame_idx, outputs, height, width)
         if boxes:
-            draw_labels(boxes, confs, colors, class_ids, classes, frame)
+            draw_labels(video, curr_frame_idx, fps, boxes, confs, colors, class_ids, classes, frame)
 
         key = cv2.waitKey(1)
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -97,10 +115,53 @@ def process_video(video):
         curr_frame_idx += 1
 
     cap.release()
+    generate_graph(video, fps)
+
+
+def generate_graph(video_name, fps):
+    # Declaring a figure "gnt"
+    fig, gnt = plt.subplots()
+
+    # Setting Y-axis limits
+    gnt.set_ylim(0, 50)
+
+    # Setting X-axis limits
+    # gnt.set_xlim(0, 160)
+
+    # Setting labels for x-axis and y-axis
+    gnt.set_xlabel('Segundos desde el inicio')
+    gnt.set_ylabel('Objetos')
+
+    # Setting ticks on y-axis
+    gnt.set_yticks([15, 25, 35])
+    # Labelling tickes of y-axis
+    gnt.set_yticklabels(['Pistola', 'Fuego', 'Rifle'])
+
+    # Setting graph attribute
+    # gnt.grid(True)
+
+    gun_tuples = [(frames_to_seconds(range[0], fps), frames_to_seconds(range[1] - range[0], fps))
+                  for range in intervals[0]]
+    gnt.broken_barh(gun_tuples, (10, 9), facecolors='tab:blue')
+
+    fire_tuples = [(frames_to_seconds(range[0], fps), frames_to_seconds(range[1] - range[0], fps))
+                   for range in intervals[1]]
+    gnt.broken_barh(fire_tuples, (20, 9), facecolors=('tab:red'))
+
+    rifle_tuples = [(frames_to_seconds(range[0], fps), frames_to_seconds(range[1] - range[0], fps))
+                    for range in intervals[2]]
+    gnt.broken_barh(rifle_tuples, (30, 9), facecolors=('tab:orange'))
+
+    folder_path = f"{OUTPUT_PATH}/{video_name.replace('.mp4', '')}"
+    if not os.path.isdir(folder_path):
+        os.mkdir(folder_path)
+    # save image
+    plt.savefig(f"{folder_path}/graph.png")
 
 
 initialize_yolo()
 videos = os.listdir(VIDEOS_PATH)
-# for video in videos:
-process_video(VIDEOS_PATH + '/fire.mp4')
-print(intervals)
+for video in videos:
+    process_video('fire.mp4')
+    for _, index in intervals:
+        intervals[index] = []
