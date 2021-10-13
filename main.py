@@ -1,4 +1,7 @@
+import multiprocessing
 import os
+import threading
+import time
 
 import cv2
 import numpy as np
@@ -118,6 +121,43 @@ def process_video(video):
     generate_graph(video, fps)
 
 
+def postprocessing(video, curr_frame_idx, outputs, height, width, fps, colors, classes, frame):
+    boxes, confs, class_ids = get_box_dimensions(curr_frame_idx, outputs, height, width)
+    if boxes:
+        draw_labels(video, curr_frame_idx, fps, boxes, confs, colors, class_ids, classes, frame)
+
+
+def postproccessing_thread_process_video(video):
+    model, classes, colors, output_layers = initialize_yolo()
+    cap = cv2.VideoCapture(VIDEOS_PATH + '/' + video)
+    curr_frame_idx = 0
+    fps = frames_in_movie(cap)
+
+    while True:
+        grabbed, frame = cap.read()
+
+        # if the frame was not grabbed, then we have reached the end
+        # of the stream
+        if not grabbed:
+            break
+
+        height, width, channels = frame.shape
+        blob, outputs = detect_objects(frame, model, output_layers)
+        x = threading.Thread(target=postprocessing,
+                             args=(video, curr_frame_idx, outputs, height, width, fps, colors, classes, frame))
+        x.start()
+
+        key = cv2.waitKey(1)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+        curr_frame_idx += 1
+
+    x.join()
+    cap.release()
+    generate_graph(video, fps)
+
+
 def generate_graph(video_name, fps):
     # Declaring a figure "gnt"
     fig, gnt = plt.subplots()
@@ -159,9 +199,31 @@ def generate_graph(video_name, fps):
     plt.savefig(f"{folder_path}/graph.png")
 
 
-initialize_yolo()
-videos = os.listdir(VIDEOS_PATH)
-for video in videos:
-    process_video('fire.mp4')
-    for _, index in intervals:
-        intervals[index] = []
+if __name__ == '__main__':
+    videos = os.listdir(VIDEOS_PATH)
+
+    print("-----NO THREADS-----")
+    start = time.time()
+    for video in videos:
+        process_video(video)
+        for index, _ in enumerate(intervals):
+            intervals[index] = []
+    end = time.time()
+    print(f"Time: {end - start}")
+
+    print("-----POSTPROCESSING THREADS-----")
+    start = time.time()
+    for video in videos:
+        postproccessing_thread_process_video(video)
+        for index, _ in enumerate(intervals):
+            intervals[index] = []
+    end = time.time()
+    print(f"Time: {end - start}")
+
+    print("-----PROCESS PER FILE-----")
+    start = time.time()
+    pool = multiprocessing.Pool(processes=8)
+    pool.map(process_video, videos)
+    pool.close()
+    end = time.time()
+    print(f"Time: {end - start}")
