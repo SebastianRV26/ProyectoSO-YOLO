@@ -357,11 +357,11 @@ Y los resultados fueron los siguientes:
 
 A continuación se muestra los tiempos de un video de fuego de 5 segundos.
 
-[fire](Imagenes/ResultadoFire.png)
+![fire](Imagenes/ResultadoFire.png)
 
 Seguidamente se muestra los tiempos de un video de armas de 14 segundos.
-[guns](Imagenes/ResultadosArmas.png)
+![guns](Imagenes/ResultadosArmas.png)
 
 Por último se muestran los tiempos de los dos videos anteriores
-[both](Imagenes/ResultaDosVideos.png)
+![both](Imagenes/ResultaDosVideos.png)
 
