@@ -351,6 +351,17 @@ print(f"Time: {end - start}")
 Lo primero que es importante mencionar es que OpenCV por sí mismo ya hace uso y maneja hilos para realizar el análisis de las imágenes, por lo que tratar de incluir hilos en los procesos donde OpenCV trabaja puede generar gran cantidad de errores, sin embargo al buscar alternativas para mejorar el rendimiento de este programa logramos encontrar los dos mencionados anteriormente, en cuanto a la opción A en realidad la diferencia entre usar estos hilos o no es mínima ya que en la aparte del postprocesado en realidad no es llamada tanto como pensamos, ya que por ejemplo solo se guarda el primer frame de cada intervalo, sin embargo a mayor escala es posible que pueda llegar a generar una diferencia más grande, en cuanto a la opción B tiene sus ventajas y desventajas, ya que si por ejemplo solo se está procesando un video, esta opción duraría lo mismo que la que no tiene treats, sin embargo si tenemos varios videos que queremos procesar esta opción permite bajar los tiempos considerablemente, ya que se reparte el trabajo de los videos entre los núcleos que tiene su computadora y de esta forma mejora los tiempos.
 
 A continuación se presentan los resultados de utilizar todas las opciones posible de procesado con una computadora que presenta las siguientes especificaciones:
+[Imagen1](Imagenes/compuSebas.png)
 
 Y los resultados fueron los siguientes:
+
+A continuación se muestra los tiempos de un video de fuego de 5 segundos.
+
+[fire](Imagenes/ResultadoFire.png)
+
+Seguidamente se muestra los tiempos de un video de armas de 14 segundos.
+[guns](Imagenes/ResultadosArmas.png)
+
+Por último se muestran los tiempos de los dos videos anteriores
+[both](Imagenes/ResultaDosVideos.png)
 
